@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<!-- saved from url=(0032)http://127.0.0.1:5500/index.html -->
+<html lang="ur" dir="rtl"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tic‑Tac‑Toe — Single File</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#06b6d4;--muted:#94a3b8;--win:#16a34a}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans',"Helvetica Neue",Arial;display:grid;place-items:center;background:linear-gradient(180deg,#071029, #0b1220);color:#e6eef6}
+    .wrap{width:min(720px,94vw);padding:28px;border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,0.03),transparent);box-shadow:0 8px 30px rgba(2,6,23,0.7)}
+    h1{margin:0 0 6px;font-size:20px;text-align:center}
+    p.sub{margin:0 0 18px;text-align:center;color:var(--muted);font-size:13px}
+    .board{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:10px;background:rgba(255,255,255,0.02);border-radius:12px}
+    .cell{aspect-ratio:1/1;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));display:flex;align-items:center;justify-content:center;font-size:48px;font-weight:700;border-radius:10px;cursor:pointer;user-select:none;transition:transform .12s ease, box-shadow .12s ease}
+    .cell:active{transform:scale(.98)}
+    .cell.disabled{cursor:not-allowed;opacity:.92}
+    .cell.x{color:#ef4444}
+    .cell.o{color:#60a5fa}
+    .controls{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:14px}
+    .left{display:flex;gap:8px;align-items:center}
+    button{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px 12px;border-radius:8px;color:inherit;cursor:pointer}
+    button.primary{background:linear-gradient(90deg,var(--accent),#7c3aed);border:none}
+    .status{font-size:14px;color:var(--muted)}
+    .scores{display:flex;gap:12px;align-items:center}
+    .score{background:rgba(255,255,255,0.02);padding:6px 10px;border-radius:8px;font-size:13px}
+    .win-line{position:relative}
+    .hidden{display:none}
+    footer{margin-top:12px;text-align:center;color:var(--muted);font-size:12px}
+    @media (max-width:420px){.cell{font-size:36px}}
+    /* highlight animation for winning cells */
+    .win{animation:winFlash .9s ease-in-out both}
+    @keyframes winFlash{0%{box-shadow:0 0 0 rgba(0,0,0,0)}50%{box-shadow:0 12px 30px rgba(99,102,241,0.12)}100%{box-shadow:0 0 0 rgba(0,0,0,0)}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Tic‑Tac‑Toe — Khel shuru karain</h1>
+    <p class="sub">2 players local ya computer ke saath. Click karein cell par chal chalne ke liye.</p>
+
+    <div class="board" role="grid" aria-label="Tic tac toe board"><button class="cell" data-index="0" role="button" aria-label="cell 1" tabindex="1"></button><button class="cell" data-index="1" role="button" aria-label="cell 2" tabindex="2"></button><button class="cell" data-index="2" role="button" aria-label="cell 3" tabindex="3"></button><button class="cell" data-index="3" role="button" aria-label="cell 4" tabindex="4"></button><button class="cell" data-index="4" role="button" aria-label="cell 5" tabindex="5"></button><button class="cell" data-index="5" role="button" aria-label="cell 6" tabindex="6"></button><button class="cell" data-index="6" role="button" aria-label="cell 7" tabindex="7"></button><button class="cell" data-index="7" role="button" aria-label="cell 8" tabindex="8"></button><button class="cell" data-index="8" role="button" aria-label="cell 9" tabindex="9"></button></div>
+
+    <div class="controls">
+      <div class="left">
+        <label style="display:flex;gap:8px;align-items:center">
+          <input type="checkbox" id="playComputer"> <span style="font-size:13px">Computer ke saath khelain</span>
+        </label>
+        <select id="computerMark" title="Computer ka nishan" style="border-radius:8px;padding:6px">
+          <option value="o">Computer = O</option>
+          <option value="x">Computer = X</option>
+        </select>
+      </div>
+
+      <div class="scores">
+        <div class="score">X: <span id="scoreX">0</span></div>
+        <div class="score">O: <span id="scoreO">0</span></div>
+        <div class="score">Draws: <span id="scoreD">0</span></div>
+        <button id="restart">Naya Game</button>
+        <button id="resetScores" title="Scores reset karen">Reset Scores</button>
+      </div>
+    </div>
+
+    <p class="status" id="status">Turn: X</p>
+    <footer>Tip: Keyboard se bhi khelain — numbers 1–9 board cells ko map karte hain.</footer>
+  </div>
+
+  <script>
+    // Simple, well-documented single-file Tic-Tac-Toe
+    const boardEl = document.querySelector('.board');
+    const statusEl = document.getElementById('status');
+    const restartBtn = document.getElementById('restart');
+    const resetScoresBtn = document.getElementById('resetScores');
+    const scoreXEl = document.getElementById('scoreX');
+    const scoreOEl = document.getElementById('scoreO');
+    const scoreDEl = document.getElementById('scoreD');
+    const playComputerCheckbox = document.getElementById('playComputer');
+    const computerMarkSelect = document.getElementById('computerMark');
+
+    let cells = Array(9).fill(null); // 'x'|'o'|null
+    let turn = 'x';
+    let running = true;
+    let scores = {x:0,o:0,d:0};
+
+    const winningCombos = [
+      [0,1,2],[3,4,5],[6,7,8], // rows
+      [0,3,6],[1,4,7],[2,5,8], // cols
+      [0,4,8],[2,4,6] // diagonals
+    ];
+
+    // init cells
+    function createBoard(){
+      boardEl.innerHTML = '';
+      for(let i=0;i<9;i++){
+        const c = document.createElement('button');
+        c.className = 'cell';
+        c.setAttribute('data-index', i);
+        c.setAttribute('role','button');
+        c.setAttribute('aria-label', `cell ${i+1}`);
+        c.addEventListener('click', onCellClick);
+        boardEl.appendChild(c);
+      }
+    }
+
+    function onCellClick(e){
+      const idx = Number(e.currentTarget.dataset.index);
+      makeMove(idx);
+    }
+
+    function makeMove(idx){
+      if(!running) return;
+      if(cells[idx]) return; // already filled
+      cells[idx] = turn;
+      render();
+      const winner = checkWinner();
+      if(winner){
+        endGame(winner);
+        return;
+      }
+      if(cells.every(Boolean)){
+        endGame('draw');
+        return;
+      }
+      // swap turn
+      turn = turn === 'x' ? 'o' : 'x';
+      updateStatus();
+
+      // if computer playing and it's computer's turn => think and play
+      if(playComputerCheckbox.checked){
+        const compMark = computerMarkSelect.value;
+        if(turn === compMark){
+          // small delay to feel natural
+          running = false; // prevent double clicks
+          setTimeout(()=>{
+            computerMove(compMark);
+            running = true;
+          }, 300 + Math.random()*300);
+        }
+      }
+    }
+
+    function computerMove(mark){
+      // simple AI: try win, block, pick center, pick corner, pick random
+      const opponent = mark === 'x' ? 'o' : 'x';
+
+      // helper to test a move
+      const tryMove = (i, m)=>{
+        const copy = cells.slice();
+        copy[i] = m;
+        return checkWinnerOnBoard(copy);
+      }
+
+      // 1) win if possible
+      for(let i=0;i<9;i++) if(!cells[i] && tryMove(i,mark)===mark){ makeMove(i); return }
+      // 2) block opponent
+      for(let i=0;i<9;i++) if(!cells[i] && tryMove(i,opponent)===opponent){ makeMove(i); return }
+      // 3) take center
+      if(!cells[4]){ makeMove(4); return }
+      // 4) take opposite corner or any corner
+      const corners = [0,2,6,8];
+      for(const c of corners) if(!cells[c]){ makeMove(c); return }
+      // 5) fallback: first available
+      for(let i=0;i<9;i++) if(!cells[i]){ makeMove(i); return }
+    }
+
+    function checkWinner(){
+      for(const combo of winningCombos){
+        const [a,b,c] = combo;
+        if(cells[a] && cells[a] === cells[b] && cells[a] === cells[c]){
+          return cells[a];
+        }
+      }
+      return null;
+    }
+
+    function checkWinnerOnBoard(board){
+      for(const combo of winningCombos){
+        const [a,b,c] = combo;
+        if(board[a] && board[a] === board[b] && board[a] === board[c]){
+          return board[a];
+        }
+      }
+      return null;
+    }
+
+    function endGame(result){
+      running = false;
+      if(result === 'draw'){
+        statusEl.textContent = 'Match draw hua.';
+        scores.d++;
+        scoreDEl.textContent = scores.d;
+      } else {
+        // highlight winning cells
+        const combo = winningCombos.find(c=> cells[c[0]] && cells[c[0]] === cells[c[1]] && cells[c[1]] === cells[c[2]]);
+        if(combo){
+          combo.forEach(i=>{
+            const btn = boardEl.querySelector(`[data-index="${i}"]`);
+            btn.classList.add('win');
+          });
+        }
+        statusEl.textContent = `${result.toUpperCase()} jeet gaya!`;
+        scores[result]++;
+        if(result === 'x') scoreXEl.textContent = scores.x; else scoreOEl.textContent = scores.o;
+      }
+      // disable remaining cells visually
+      boardEl.querySelectorAll('.cell').forEach(c=>c.classList.add('disabled'));
+    }
+
+    function render(){
+      boardEl.querySelectorAll('.cell').forEach(btn=>{
+        const i = Number(btn.dataset.index);
+        btn.classList.remove('x','o');
+        if(cells[i]){
+          btn.textContent = cells[i].toUpperCase();
+          btn.classList.add(cells[i]);
+        } else btn.textContent = '';
+      });
+    }
+
+    function updateStatus(){
+      statusEl.textContent = `Turn: ${turn.toUpperCase()}`;
+    }
+
+    // controls
+    restartBtn.addEventListener('click', ()=>{
+      resetBoard();
+    });
+
+    resetScoresBtn.addEventListener('click', ()=>{
+      scores = {x:0,o:0,d:0};
+      scoreXEl.textContent = 0; scoreOEl.textContent = 0; scoreDEl.textContent = 0;
+    });
+
+    function resetBoard(){
+      cells = Array(9).fill(null);
+      turn = 'x';
+      running = true;
+      boardEl.querySelectorAll('.cell').forEach(c=>{c.classList.remove('win','disabled')});
+      render();
+      updateStatus();
+    }
+
+    // keyboard support (1-9)
+    window.addEventListener('keydown', (e)=>{
+      if(e.key >= '1' && e.key <= '9'){
+        const idx = Number(e.key) - 1; // map 1->0 ... 9->8
+        makeMove(idx);
+      }
+      if(e.key === 'r' || e.key === 'R') resetBoard();
+    });
+
+    // init
+    createBoard();
+    resetBoard();
+
+    // accessibility: set tab order
+    boardEl.querySelectorAll('.cell').forEach((c,i)=>c.tabIndex = 1 + i);
+  </script>
+<!-- Code injected by live-server -->
+<script>
+	// <![CDATA[  <-- For SVG support
+	if ('WebSocket' in window) {
+		(function () {
+			function refreshCSS() {
+				var sheets = [].slice.call(document.getElementsByTagName("link"));
+				var head = document.getElementsByTagName("head")[0];
+				for (var i = 0; i < sheets.length; ++i) {
+					var elem = sheets[i];
+					var parent = elem.parentElement || head;
+					parent.removeChild(elem);
+					var rel = elem.rel;
+					if (elem.href && typeof rel != "string" || rel.length == 0 || rel.toLowerCase() == "stylesheet") {
+						var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, '');
+						elem.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_cacheOverride=' + (new Date().valueOf());
+					}
+					parent.appendChild(elem);
+				}
+			}
+			var protocol = window.location.protocol === 'http:' ? 'ws://' : 'wss://';
+			var address = protocol + window.location.host + window.location.pathname + '/ws';
+			var socket = new WebSocket(address);
+			socket.onmessage = function (msg) {
+				if (msg.data == 'reload') window.location.reload();
+				else if (msg.data == 'refreshcss') refreshCSS();
+			};
+			if (sessionStorage && !sessionStorage.getItem('IsThisFirstTime_Log_From_LiveServer')) {
+				console.log('Live reload enabled.');
+				sessionStorage.setItem('IsThisFirstTime_Log_From_LiveServer', true);
+			}
+		})();
+	}
+	else {
+		console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
+	}
+	// ]]>
+</script>
+
+
+</body></html>
